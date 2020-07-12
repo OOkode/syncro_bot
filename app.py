@@ -60,8 +60,6 @@ api_hash = env.API_HASH
 client = TelegramClient('session1', api_id, api_hash)
 client.start(phone=env.PHONE,password=env.PASSWORD)
 
-client.start()
-
 purge_unwanted_users(client,channel,group,log_channel)
 
 
