@@ -1,11 +1,13 @@
 from telethon import TelegramClient, events, sync
 import env
+import time
 
 PERMITTED_USERS = ['ChelpBots']
 
 channels = {'Granma':-1001360204322,'Pinar': 'AlertaTuenvioPinar'}
 groups = {'Granma': 'tuenviogranma','Pinar':'TuenvioPinardelRio'}
 log_channels = {'Granma':-1001394912157,'Pinar':'logpinardelrio'}
+forbidden_groups = ['tuenviopinargrupo',]
 
 
 channel = channels['Pinar']
@@ -57,6 +59,7 @@ def get_users_in_forbidden_groups(client,forbidden_groups):
 def purge_unwanted_users(client,channel,group,log_channel,forbidden_groups):
 
     group_users = client.get_participants(group)
+    action_counter = 0
 
     try:
 
@@ -65,27 +68,52 @@ def purge_unwanted_users(client,channel,group,log_channel,forbidden_groups):
         users_in_forbidden_groups = get_users_in_forbidden_groups(client,forbidden_groups)
 
         for user in users_to_be_kicked_from_group:
+
+            if action_counter > 80:
+                action_counter = 0
+                time.sleep(100)
+            
             client.kick_participant(entity=group,user=user)
+            time.sleep(1)
             username = ('@' + user.username) if user.username else ''
             client.send_message(entity=log_channel,message= f'Kicked {user.id if not user.username else username} for not having username')
+            action_counter += 2
 
         for user in users_to_be_kicked_from_channel:
-            client.kick_participant(entity=group,user=user)
+
+            if action_counter > 80:
+                action_counter = 0
+                time.sleep(100)
+            
+            client.kick_participant(entity=channel,user=user)
+            time.sleep(1)
             username = ('@' + user.username) if user.username else ''
             client.send_message(entity=log_channel,message= f'Kicked {user.id if not user.username else username} for not subscribing to the group')
+            action_counter += 2
 
         # for user in users_to_be_kicked_from_channel:
+        #     if action_counter > 80:
+        #         action_counter = 0
+        #         time.sleep(5)
         #     client.edit_permissions(channel, user, view_messages=False)
+        #     time.sleep(1)
         #     username = ('@' + user.username) if user.username else ''
         #     client.send_message(entity=log_channel,message= f'Banned {user.id if not user.username else username} for not subscribing to the group')
+        #     action_counter += 2
 
 
         for user in users_in_forbidden_groups:
+            if action_counter > 80:
+                action_counter = 0
+                time.sleep(100)
+
             if user in group_users:
                 client.edit_permissions(channel, user, view_messages=False)
                 client.edit_permissions(group, user, view_messages=False)
+                time.sleep(1)
                 username = ('@' + user.username) if user.username else ''
                 client.send_message(entity=log_channel,message= f'Banned {user.id if not user.username else username} for belonging to forbidden group')
+                action_counter += 2
             
 
     except ValueError as e:
@@ -97,6 +125,6 @@ api_id, api_hash = get_api_credentials()
 client = TelegramClient('session1', api_id, api_hash)
 client.start(phone=env.PHONE,password=env.PASSWORD)
 
-purge_unwanted_users(client,channel,group,log_channel,['tuenviopinargrupo'])
+purge_unwanted_users(client,channel,group,log_channel,forbidden_groups)
 
 
