@@ -174,6 +174,7 @@ loop = asyncio.get_event_loop()
 #
 # loop.run_until_complete(get_users_without_username(client ,group))
 loop.run_until_complete(purge_unwanted_users(telethon_client, CHANNEL, GROUP, LOG_CHANNEL, forbidden_groups))
+print("Done")
 # time.sleep(1)
 # loop.close()
 # get_users_not_in_group(client,channel,group)
