@@ -151,7 +151,7 @@ async def purge_unwanted_users(client, channel, group, log_channel, forbidden_gr
 
         # await ban_from_channel(client,users_to_be_kicked_from_channel)
 
-        await forbidden_group_ban(client, users_in_forbidden_groups)
+        # await forbidden_group_ban(client, users_in_forbidden_groups)
 
 
 
