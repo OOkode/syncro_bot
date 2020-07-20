@@ -1,8 +1,8 @@
 from telethon import TelegramClient, events, sync
 import env
-import time
+import time, asyncio
 
-PERMITTED_USERS = ['ChelpBots']
+ALLOWED_USERS = ['ChelpBots']
 
 channels = {'Granma':-1001360204322,'Pinar': 'AlertaTuenvioPinar'}
 groups = {'Granma': 'tuenviogranma','Pinar':'TuenvioPinardelRio'}
@@ -13,118 +13,182 @@ forbidden_groups = ['tuenviopinargrupo',]
 channel = channels['Pinar']
 group = groups['Pinar']
 log_channel = log_channels['Pinar']
+action_counter = 0
+
 
 def get_api_credentials():
     return (env.API_ID,env.API_HASH)
 
 
-def get_users_not_in_group(client,channel,group):
+async def get_users_not_in_group(client,channel,group):
 
-    global PERMITTED_USERS
+    print('---------- USUARIOS QUE NO ESTAN EN GRUPO ----------- \n')
+    global ALLOWED_USERS
     UNWANTED_USERS = []
 
-    group_users = client.get_participants(group)
-    channel_users = client.get_participants(channel)
+    group_users = await client.get_participants(entity=group,aggressive=True)
+    channel_users = await client.get_participants(entity=channel,aggressive=True)
 
     for user in channel_users:
-        if (user.username not in PERMITTED_USERS) and ( not user.bot ) and (user not in group_users):
+        if (user.username not in ALLOWED_USERS) and ( not user.bot ) and (not (user in group_users)):
             print(user.username or user.id)
             UNWANTED_USERS.append(user)
 
+    print(len(UNWANTED_USERS))
+
     return UNWANTED_USERS
 
-def get_users_without_username(client,group):
+async def get_users_without_username(client,group):
+
+    print('---------- USUARIOS SIN ALIAS -----------')
 
     UNWANTED_USERS = []
 
-    group_users = client.get_participants(group)
+    group_users = await client.get_participants(entity=group,aggressive=True)
 
     for user in group_users:
         if not user.username:
+            print(user.username or user.id)
             UNWANTED_USERS.append(user)
 
-    
+    print(len(UNWANTED_USERS))
     return UNWANTED_USERS
 
-def get_users_in_forbidden_groups(client,forbidden_groups):
+async def get_users_in_forbidden_groups(client,forbidden_groups):
 
     UNWANTED_USERS = []
 
     for group in forbidden_groups:
-        for user in client.get_participants(group):
+        users_in_forbidden_group = await client.get_participants(entity=group, aggressive=True)
+        for user in users_in_forbidden_group:
             UNWANTED_USERS.append(user)
 
+    print(f'Numero de usuarios en grupo prohibido: {len(UNWANTED_USERS)}')
     return UNWANTED_USERS            
 
-def purge_unwanted_users(client,channel,group,log_channel,forbidden_groups):
 
-    group_users = client.get_participants(group)
-    action_counter = 0
+async def kick_from_channel(client,users_to_be_kicked_from_channel):
+
+    global action_counter
+    for user in users_to_be_kicked_from_channel:
+
+        if action_counter > 80:
+            action_counter = 0
+            time.sleep(100)
+
+        if not user.bot:
+            await client.kick_participant(entity=channel, user=user)
+            time.sleep(5)
+            username = ('@' + user.username) if user.username else ''
+            await client.send_message(entity=log_channel,
+                                      message=f'Kicked {user.id if not user.username else username} for not subscribing to the group')
+            action_counter += 2
+
+
+async def ban_from_channel(client,users_to_be_banned_from_channel):
+
+    global action_counter
+    for user in users_to_be_banned_from_channel:
+        if action_counter > 80:
+            action_counter = 0
+            time.sleep(100)
+
+        if not user.bot:
+            await client.edit_permissions(channel, user, view_messages=False)
+            time.sleep(5)
+            username = ('@' + user.username) if user.username else ''
+            await client.send_message(entity=log_channel,
+                                      message=f'Banned {user.id if not user.username else username} for not subscribing to the group')
+            action_counter += 2
+
+
+async def kick_from_group(client,users_to_be_kicked_from_group):
+
+    global action_counter
+    for user in users_to_be_kicked_from_group:
+
+        if action_counter > 80:
+            action_counter = 0
+            time.sleep(100)
+
+        await client.kick_participant(entity=group, user=user)
+        time.sleep(5)
+        username = ('@' + user.username) if user.username else ''
+        await client.send_message(entity=log_channel,
+                                  message=f'Kicked {user.id if not user.username else username} for not having username')
+        action_counter += 2
+
+
+async def forbidden_group_ban(client,users_in_forbidden_groups):
+
+    global action_counter
+    for user in users_in_forbidden_groups:
+        if action_counter > 80:
+            action_counter = 0
+            time.sleep(100)
+
+        if not user.bot:
+            await client.edit_permissions(channel, user, view_messages=False)
+            await client.edit_permissions(group, user, view_messages=False)
+            time.sleep(5)
+            username = ('@' + user.username) if user.username else ''
+            await client.send_message(entity=log_channel,
+                                      message=f'Banned {user.id if not user.username else username} for belonging to forbidden group')
+            action_counter += 2
+
+
+async def purge_unwanted_users(client,channel,group,log_channel,forbidden_groups):
+
+    group_users = await client.get_participants(entity=group,aggressive=True)
+
 
     try:
 
-        users_to_be_kicked_from_channel = get_users_not_in_group(client,channel,group)
-        users_to_be_kicked_from_group = get_users_without_username(client,group)
-        users_in_forbidden_groups = get_users_in_forbidden_groups(client,forbidden_groups)
-
-        for user in users_to_be_kicked_from_group:
-
-            if action_counter > 80:
-                action_counter = 0
-                time.sleep(100)
-            
-            client.kick_participant(entity=group,user=user)
-            time.sleep(1)
-            username = ('@' + user.username) if user.username else ''
-            client.send_message(entity=log_channel,message= f'Kicked {user.id if not user.username else username} for not having username')
-            action_counter += 2
-
-        for user in users_to_be_kicked_from_channel:
-
-            if action_counter > 80:
-                action_counter = 0
-                time.sleep(100)
-            
-            client.kick_participant(entity=channel,user=user)
-            time.sleep(1)
-            username = ('@' + user.username) if user.username else ''
-            client.send_message(entity=log_channel,message= f'Kicked {user.id if not user.username else username} for not subscribing to the group')
-            action_counter += 2
-
-        # for user in users_to_be_kicked_from_channel:
-        #     if action_counter > 80:
-        #         action_counter = 0
-        #         time.sleep(5)
-        #     client.edit_permissions(channel, user, view_messages=False)
-        #     time.sleep(1)
-        #     username = ('@' + user.username) if user.username else ''
-        #     client.send_message(entity=log_channel,message= f'Banned {user.id if not user.username else username} for not subscribing to the group')
-        #     action_counter += 2
+        not_abyding_users_from_channel = await get_users_not_in_group(client,channel,group)
+        not_abyding_users_from_group = await get_users_without_username(client,group)
+        users_in_forbidden_groups = await get_users_in_forbidden_groups(client,forbidden_groups)
 
 
-        for user in users_in_forbidden_groups:
-            if action_counter > 80:
-                action_counter = 0
-                time.sleep(100)
 
-            if user in group_users:
-                client.edit_permissions(channel, user, view_messages=False)
-                client.edit_permissions(group, user, view_messages=False)
-                time.sleep(1)
-                username = ('@' + user.username) if user.username else ''
-                client.send_message(entity=log_channel,message= f'Banned {user.id if not user.username else username} for belonging to forbidden group')
-                action_counter += 2
+        print('\n')
+
+
+
+        print(f'Numero de usuarios baneados por estar en grupos prohibidos:  {len(users_in_forbidden_groups)}')
+        print('\n')        
+
+        await kick_from_group(client,not_abyding_users_from_group)
+
+        await kick_from_channel(client,not_abyding_users_from_channel)
+
+        # await ban_from_channel(client,users_to_be_kicked_from_channel)
+
+        await forbidden_group_ban(client,users_in_forbidden_groups)
+
+
+
             
 
     except ValueError as e:
         raise e
 
 
-api_id, api_hash = get_api_credentials()
+api_id, api_hash = env.API_ID,env.API_HASH
 
-client = TelegramClient('session1', api_id, api_hash)
+client = TelegramClient('session2', api_id, api_hash)
 client.start(phone=env.PHONE,password=env.PASSWORD)
 
-purge_unwanted_users(client,channel,group,log_channel,forbidden_groups)
+#purge_unwanted_users(client,channel,group,log_channel,[])
 
+loop = asyncio.get_event_loop()
+
+
+# loop.run_until_complete(get_users_not_in_group(client,channel,group))
+#
+# loop.run_until_complete(get_users_without_username(client ,group))
+loop.run_until_complete(purge_unwanted_users(client,channel,group,log_channel,forbidden_groups))
+# time.sleep(1)
+# loop.close()
+#get_users_not_in_group(client,channel,group)
+#get_users_without_username(client,group)
 
