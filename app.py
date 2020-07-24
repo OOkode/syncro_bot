@@ -1,4 +1,5 @@
 from telethon import TelegramClient, events, sync
+from telethon.errors.rpcerrorlist import UserAdminInvalidError
 import env
 import time, asyncio
 
@@ -74,11 +75,17 @@ async def kick_from_channel(client, users_to_be_kicked_from_channel):
             time.sleep(100)
 
         if not user.bot:
-            await client.kick_participant(entity=CHANNEL, user=user)
-            time.sleep(5)
-            username = ('@' + user.username) if user.username else ''
-            await client.send_message(entity=LOG_CHANNEL,
-                                      message=f'Kicked {user.id if not user.username else username} for not subscribing to the group')
+            try:
+                await client.kick_participant(entity=CHANNEL, user=user)
+                time.sleep(5)
+                username = ('@' + user.username) if user.username else ''
+                await client.send_message(entity=LOG_CHANNEL,
+                                          message=f'Kicked {user.id if not user.username else username} for not subscribing to the group')
+            except UserAdminInvalidError as e:
+                print(f"No se pude eliminar al usuario {user.username if user.username else user.id}")
+
+
+
             action_counter += 2
 
 
@@ -90,11 +97,18 @@ async def ban_from_channel(client, users_to_be_banned_from_channel):
             time.sleep(100)
 
         if not user.bot:
-            await client.edit_permissions(CHANNEL, user, view_messages=False)
-            time.sleep(5)
-            username = ('@' + user.username) if user.username else ''
-            await client.send_message(entity=LOG_CHANNEL,
-                                      message=f'Banned {user.id if not user.username else username} for not subscribing to the group')
+
+            try:
+                await client.edit_permissions(CHANNEL, user.id, view_messages=False)
+                time.sleep(5)
+                username = ('@' + user.username) if user.username else ''
+                await client.send_message(entity=LOG_CHANNEL,
+                                          message=f'Banned {user.id if not user.username else username} for not subscribing to the group')
+            except UserAdminInvalidError as e:
+                print(f"No se pude eliminar al usuario {user.username if user.username else user.id}")
+
+
+
             action_counter += 2
 
 
@@ -107,6 +121,7 @@ async def kick_from_group(client, users_to_be_kicked_from_group):
             time.sleep(100)
 
         await client.kick_participant(entity=GROUP, user=user)
+        await kick_from_channel(client,[user])
         time.sleep(5)
         username = ('@' + user.username) if user.username else ''
         await client.send_message(entity=LOG_CHANNEL,
@@ -122,8 +137,8 @@ async def forbidden_group_ban(client, users_in_forbidden_groups):
             time.sleep(100)
 
         if not user.bot:
-            await client.edit_permissions(CHANNEL, user, view_messages=False)
-            await client.edit_permissions(GROUP, user, view_messages=False)
+            await client.edit_permissions(CHANNEL, user.id, view_messages=False)
+            await client.edit_permissions(GROUP, user.id, view_messages=False)
             time.sleep(5)
             username = ('@' + user.username) if user.username else ''
             await client.send_message(entity=LOG_CHANNEL,
@@ -149,13 +164,13 @@ async def purge_unwanted_users(client, channel, group, log_channel, forbidden_gr
 
         if take_actions == 'y':
             pass
-            # await kick_from_group(client, not_abyding_users_from_group)
+            await kick_from_group(client, not_abyding_users_from_group)
             #
             # await kick_from_channel(client, not_abyding_users_from_channel)
             #
-            # await ban_from_channel(client,not_abyding_users_from_channel)
+            await ban_from_channel(client,not_abyding_users_from_channel)
             #
-            # await forbidden_group_ban(client, users_in_forbidden_groups)
+            await forbidden_group_ban(client, users_in_forbidden_groups)
         else:
             print("Purga cancelada\n")
             return
