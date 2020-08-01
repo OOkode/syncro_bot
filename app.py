@@ -10,10 +10,10 @@ groups = {'Granma': 'tuenviogranma', 'Pinar': 'TuenvioPinardelRio'}
 log_channels = {'Granma': -1001394912157, 'Pinar': 'logpinardelrio'}
 forbidden_groups = ['tuenviopinargrupo', ]
 
-CHANNEL = channels['Pinar']
-GROUP = groups['Pinar']
-LOG_CHANNEL = log_channels['Pinar']
-bot_token = '1256869136:AAFVAZ71-YSUXBcct1wBQuYryHO-1BXXsDg'
+CHANNEL = channels['Granma']
+GROUP = groups['Granma']
+LOG_CHANNEL = log_channels['Granma']
+bot_token = env.BOT_TOKEN
 
 action_counter = 0
 
@@ -31,7 +31,7 @@ async def get_users_not_in_group(client, channel_users, group_users):
 
 
     for user in channel_users:
-        if (user.username not in ALLOWED_USERS) and (not user.bot) and (not (user in group_users)):
+        if ((user.username not in ALLOWED_USERS) and (not user.bot) and (not (user in group_users)) or ( not user.username)):
             print(user.username or user.id)
             unwanted_users.append(user)
 
@@ -121,7 +121,7 @@ async def kick_from_group(client, users_to_be_kicked_from_group):
             time.sleep(100)
 
         await client.kick_participant(entity=GROUP, user=user)
-        await kick_from_channel(client,[user])
+        # await kick_from_channel(client,[user])
         time.sleep(5)
         username = ('@' + user.username) if user.username else ''
         await client.send_message(entity=LOG_CHANNEL,
@@ -188,9 +188,9 @@ api_id, api_hash = env.API_ID, env.API_HASH
 # telethon_client.start(phone=env.PHONE, password=env.PASSWORD)
 
 telethon_client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
-
+print('logged in')
 loop = asyncio.get_event_loop()
 
-loop.run_until_complete(purge_unwanted_users(telethon_client, CHANNEL, GROUP, LOG_CHANNEL, forbidden_groups))
+loop.run_until_complete(purge_unwanted_users(telethon_client, CHANNEL, GROUP, LOG_CHANNEL, []))
 print("Done")
 
